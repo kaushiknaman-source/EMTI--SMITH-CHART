@@ -10,7 +10,7 @@
 <style>
   :root{
     --desk:#E6ECEE; --sheet:#FCFDFB; --ink:#1C2430; --muted:#5A6675;
-    --grid:#3F8F6B; --pen:#1B3A8C; --red:#C4361F; --ochre:#A86200; --line:#C9D3D8;
+    --grid:#1E9E7A; --ind:#3B7DD8; --cap:#8E4EC6; --pen:#1B2A6B; --red:#D62839; --ochre:#E08A00; --line:#C9D3D8;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--desk);color:var(--ink);
@@ -27,7 +27,13 @@
   .panel{padding:20px 22px}
 
   /* chart */
-  .g-line{fill:none;stroke:var(--grid);stroke-width:1;opacity:.45}
+  .g-line{fill:none;stroke:var(--grid);stroke-width:1.1;opacity:.6}
+  .g-ind{stroke:var(--ind)} .g-cap{stroke:var(--cap)}
+  .t-ind{fill:var(--ind);opacity:.07} .t-cap{fill:var(--cap);opacity:.07}
+  .g-text.ti{fill:var(--ind)} .g-text.tc{fill:var(--cap)}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:0;padding:8px 14px 12px;font-size:.88rem;color:var(--muted)}
+  .legend i{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+  .legend i.pt{width:10px;height:10px;border-radius:50%}
   .g-rim{fill:none;stroke:var(--grid);stroke-width:1.6;opacity:.8}
   .g-text{font:13px "Source Serif 4",Georgia,serif;fill:var(--grid)}
   .locus{fill:none;stroke-width:3.2;stroke-linecap:round}
@@ -38,6 +44,22 @@
   .lbl{font:600 16px "Source Serif 4",Georgia,serif;paint-order:stroke;stroke:var(--sheet);stroke-width:5px;stroke-linejoin:round}
   .f-red{fill:var(--red)} .f-ochre{fill:var(--ochre)} .f-pen{fill:var(--pen)}
 
+  .tabs{display:flex;gap:6px;margin:0 0 14px}
+  .tabs button{font:inherit;padding:8px 16px;border:1px solid var(--pen);border-radius:4px;background:#fff;color:var(--pen);cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--pen);color:#fff}
+  body.paper main{max-width:1560px}
+  body.paper .layout{grid-template-columns:minmax(0,1.7fr) minmax(310px,.7fr)}
+  @media (max-width:900px){body.paper .layout{grid-template-columns:1fr}}
+  body.paper .chart{background:#FFFEF7}
+  .p-min{fill:none;stroke:#1d1d1d;stroke-width:.5;opacity:.5}
+  .p-maj{fill:none;stroke:#111;stroke-width:.95}
+  .p-text{font:8.5px Arial,Helvetica,sans-serif;fill:#111;paint-order:stroke;stroke:#FFFEF7;stroke-width:2.5px}
+  .p-ring{font:7.5px Arial,Helvetica,sans-serif;fill:#111}
+  .p-cap{font:11px Arial,Helvetica,sans-serif;fill:#111;letter-spacing:.04em}
+  body.paper .lbl{font-size:21px;stroke:#FFFEF7}
+  body.paper .locus{stroke-width:3.6}
+  [hidden]{display:none!important}
+
   /* panel */
   form{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 6px}
   label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:3px}
@@ -45,10 +67,10 @@
   .err{color:var(--red);font-size:.9rem;min-height:1.3em;margin:0 0 8px}
   ol.steps{list-style:none;margin:0 0 16px;padding:0;counter-reset:s;border-top:1px solid var(--line)}
   ol.steps li{counter-increment:s;border-bottom:1px solid var(--line)}
-  ol.steps button{all:unset;cursor:pointer;display:block;width:100%;padding:7px 6px;color:var(--muted)}
+  ol.steps button{all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;padding:7px 6px 7px 10px;color:var(--muted);border-left:5px solid var(--c)}
   ol.steps button::before{content:counter(s) ". ";font-variant-numeric:tabular-nums}
   ol.steps li.done button{color:var(--ink)}
-  ol.steps li.cur button{color:var(--pen);font-weight:600;background:#EEF2FB}
+  ol.steps li.cur button{color:var(--ink);font-weight:600;background:color-mix(in srgb,var(--c) 14%,white)}
   .explain{min-height:9.5em;margin:0 0 16px}
   .explain h2{font-size:1.25rem;margin:0 0 6px;font-weight:600}
   .explain p{margin:0 0 8px;max-width:60ch}
@@ -71,13 +93,33 @@
   <h1>Smith chart, drawn step by step</h1>
   <p class="problem" id="problem"></p>
 
+  <div class="tabs" role="tablist" aria-label="Chart style">
+    <button type="button" role="tab" id="tabSimple" aria-selected="true">Simple chart</button>
+    <button type="button" role="tab" id="tabPaper" aria-selected="false">Paper chart</button>
+  </div>
+
   <div class="layout">
     <div class="sheet chart">
       <svg id="svg" viewBox="0 0 720 720" role="img" aria-label="Animated Smith chart construction">
-        <defs><clipPath id="disc"><circle cx="360" cy="360" r="270"/></clipPath></defs>
-        <g id="grid"></g>
+        <g id="gridSimple"></g>
+        <g id="gridPaper" style="display:none"></g>
         <g id="work"></g>
       </svg>
+      <ul class="legend" id="legSimple">
+        <li><i style="background:var(--grid)"></i>Resistance circles</li>
+        <li><i style="background:var(--ind)"></i>Inductive arcs (+jx)</li>
+        <li><i style="background:var(--cap)"></i>Capacitive arcs (−jx)</li>
+        <li><i class="pt" style="background:var(--red)"></i>Load z<sub>L</sub></li>
+        <li><i style="background:var(--pen)"></i>VSWR circle</li>
+        <li><i class="pt" style="background:var(--ochre)"></i>Admittance y<sub>L</sub></li>
+      </ul>
+      <ul class="legend" id="legPaper" hidden>
+        <li>Outer rings, from the outside in: wavelengths toward generator, wavelengths toward load, angle of Γ in degrees</li>
+        <li>Scales under the chart: SWR and |Γ|</li>
+        <li><i class="pt" style="background:var(--red)"></i>Load z<sub>L</sub></li>
+        <li><i style="background:var(--pen)"></i>VSWR circle</li>
+        <li><i class="pt" style="background:var(--ochre)"></i>Admittance y<sub>L</sub></li>
+      </ul>
     </div>
 
     <div class="sheet panel">
@@ -108,7 +150,9 @@
 
 <script>
 (() => {
-  const NS = 'http://www.w3.org/2000/svg', C = 360, R = 270;
+  const NS = 'http://www.w3.org/2000/svg';
+  let CX = 360, CY = 360, R = 270, paper = false;
+  const SWR_Y = 1030, GAM_Y = 1075;
   const $ = id => document.getElementById(id);
   const el = (name, attrs, parent) => {
     const e = document.createElementNS(NS, name);
@@ -116,7 +160,7 @@
     if (parent) parent.appendChild(e);
     return e;
   };
-  const P = (re, im) => [C + R * re, C - R * im];
+  const P = (re, im) => [CX + R * re, CY - R * im];
   const f = n => { const v = +n.toFixed(2); return (Object.is(v, -0) ? 0 : v).toString().replace('-', '−'); };
   const cx = (re, im) => `${f(re)} ${im < 0 ? '−' : '+'} j${f(Math.abs(im))}`;
   const signed = n => (n >= 0 ? '+' : '') + f(n);
@@ -139,8 +183,10 @@
 
   /* ---------- static grid ---------- */
   (function grid() {
-    const g = $('grid');
+    const g = $('gridSimple');
     const [ax, ay] = P(-1, 0), [bx, by] = P(1, 0);
+    el('path', { d: `M${ax} ${ay}A${R} ${R} 0 0 1 ${bx} ${by}Z`, class: 't-ind' }, g);
+    el('path', { d: `M${ax} ${ay}A${R} ${R} 0 0 0 ${bx} ${by}Z`, class: 't-cap' }, g);
     el('line', { x1: ax, y1: ay, x2: bx, y2: by, class: 'g-line' }, g);
     [0.2, 0.5, 1, 2, 5].forEach(r => {
       el('path', { d: rCirclePath(r), class: 'g-line' }, g);
@@ -148,12 +194,12 @@
       el('text', { x: px + 4, y: py + 15, class: 'g-text' }, g).textContent = r;
     });
     [0.2, 0.5, 1, 2, 5].forEach(x => [x, -x].forEach(v => {
-      el('path', { d: xArcPath(v), class: 'g-line' }, g);
+      el('path', { d: xArcPath(v), class: 'g-line ' + (v > 0 ? 'g-ind' : 'g-cap') }, g);
       const [re, im] = rim(v), [px, py] = P(re * 1.06, im * 1.06);
-      el('text', { x: px, y: py + 5, class: 'g-text', 'text-anchor': 'middle' }, g)
+      el('text', { x: px, y: py + 5, class: 'g-text ' + (v > 0 ? 'ti' : 'tc'), 'text-anchor': 'middle' }, g)
         .textContent = (v > 0 ? '+j' : '−j') + Math.abs(v);
     }));
-    el('circle', { cx: C, cy: C, r: R, class: 'g-rim' }, g);
+    el('circle', { cx: CX, cy: CY, r: R, class: 'g-rim' }, g);
     const [zx, zy] = P(-1.06, 0);
     el('text', { x: zx - 4, y: zy + 5, class: 'g-text', 'text-anchor': 'middle' }, g).textContent = '0';
     const [ix, iy] = P(1.06, 0);
@@ -190,7 +236,7 @@
   function xHighlight(g, x, cls, text, t) {
     curve(g, xArcPath(x), 'locus c-' + cls, ease(t));
     const [re, im] = Math.abs(x) < 1e-6 ? [-1, 0] : rim(x);
-    const [px, py] = P(re * 1.17, im * 1.17);
+    const k = paper ? 1.215 : 1.17, [px, py] = P(re * k, im * k);
     label(g, px, py + 5, text, 'f-' + cls, 'middle', seg(t, .6, 1));
   }
 
@@ -203,15 +249,17 @@
         <p>The centre of the chart is z = 1, a perfectly matched load.</p>`,
       draw: (g, t) => {
         const k = ease(t);
-        el('circle', { cx: C, cy: C, r: 4 * k, class: 'f-pen' }, g);
-        label(g, C + 8, C - 10, 'z = 1', 'f-pen', 'start', k);
+        el('circle', { cx: CX, cy: CY, r: 4 * k, class: 'f-pen' }, g);
+        label(g, CX + 8, CY - 10, 'z = 1', 'f-pen', 'start', k);
       }
     },
     {
       title: s => `Find the r = ${f(s.r)} circle`,
       text: s => `<p>Resistance circles all touch the right-hand edge of the chart. Follow the real axis to
         <span class="math">r = ${f(s.r)}</span> and trace that circle.</p>
-        <p>Every impedance with this resistance lies somewhere on it.</p>`,
+        <p>Every impedance with this resistance lies somewhere on it.</p>` + (paper ? `<p>On the paper chart the
+        resistance values are printed along the horizontal centre line. If your value falls between two printed
+        circles, estimate its position between them.</p>` : ''),
       draw: (g, t, s) => rHighlight(g, s.r, 'red', `r = ${f(s.r)}`, t, true)
     },
     {
@@ -221,7 +269,8 @@
         : `<p>Reactance arcs fan out from the right-hand edge. ${s.x < 0
             ? 'Negative (capacitive) reactance is in the lower half'
             : 'Positive (inductive) reactance is in the upper half'}, so trace the
-          <span class="math">x = ${f(s.x)}</span> arc from the rim inwards.</p>`,
+          <span class="math">x = ${f(s.x)}</span> arc from the rim inwards.</p>` + (paper ? `<p>On the paper chart
+          the reactance values are printed just inside the rim.</p>` : ''),
       draw: (g, t, s) => xHighlight(g, s.x, 'red', `x = ${f(s.x)}`, t)
     },
     {
@@ -246,7 +295,7 @@
         }
         el('path', { d, class: 'pen' }, g);
         if (t < 1) {
-          el('line', { x1: C, y1: C, x2: lx, y2: ly, class: 'compass' }, g);
+          el('line', { x1: CX, y1: CY, x2: lx, y2: ly, class: 'compass' }, g);
           el('circle', { cx: lx, cy: ly, r: 4, class: 'f-pen' }, g);
         }
       }
@@ -255,10 +304,20 @@
       title: 'Cross to the opposite side',
       text: s => `<p>Rule a straight line from z<sub>L</sub> through the centre until it meets the circle again.</p>
         <p>Half a turn on the chart is a λ/4 move along the line, and that inverts a normalized impedance.
-        So the opposite point is the admittance, y<sub>L</sub> = 1 / z<sub>L</sub>.</p>`,
+        So the opposite point is the admittance, y<sub>L</sub> = 1 / z<sub>L</sub>.</p>` + (paper && s.mag > 0.02 ? `<p>Extend
+        the line to the outermost ring, wavelengths toward generator. It reads <span class="math">${s.wz.toFixed(3)} λ</span>
+        on the z<sub>L</sub> side and <span class="math">${s.wy.toFixed(3)} λ</span> on the y<sub>L</sub> side, a quarter
+        wavelength apart.</p>` : ''),
       draw: (g, t, s) => {
         const u = ease(seg(t, 0, .6));
-        if (u > 0) {
+        if (u > 0 && paper && s.mag > 0.02) {
+          const ux = Math.cos(s.ang), uy = Math.sin(s.ang), e = 1 + 56 / R, q = 1 + 104 / R;
+          const [x1, y1] = P(ux * e, uy * e), [x2, y2] = P(ux * e * (1 - 2 * u), uy * e * (1 - 2 * u));
+          el('line', { x1, y1, x2, y2, class: 'pen' }, g);
+          const [ax, ay] = P(ux * q, uy * q), [bx, by] = P(-ux * q, -uy * q);
+          label(g, ax, ay + 6, s.wz.toFixed(3) + ' λ', 'f-pen', 'middle', seg(t, 0, .2));
+          label(g, bx, by + 6, s.wy.toFixed(3) + ' λ', 'f-pen', 'middle', seg(t, .5, .7));
+        } else if (u > 0) {
           const [x1, y1] = P(s.gre, s.gim), [x2, y2] = P(s.gre * (1 - 2 * u), s.gim * (1 - 2 * u));
           el('line', { x1, y1, x2, y2, class: 'pen' }, g);
         }
@@ -280,8 +339,20 @@
       title: 'Read the VSWR',
       text: s => `<p>Look at where the VSWR circle cuts the real axis on the right of the centre.
         The resistance value at that crossing is the VSWR:</p>
-        <p><span class="math">VSWR = ${f(s.S)}</span></p>`,
+        <p><span class="math">VSWR = ${f(s.S)}</span></p>` + (paper ? `<p>The paper chart gives a second way: keep the
+        compass at the circle's radius and carry it down to the SWR scale under the chart, shown here by the dashed
+        line. It reads the same value, and the scale below it gives <span class="math">|Γ| = ${f(s.mag)}</span>.</p>` : ''),
       draw: (g, t, s) => {
+        if (paper) {
+          const [x, y0] = P(-s.mag, 0), d = ease(seg(t, .35, .8));
+          if (d > 0) el('line', { x1: x, y1: y0, x2: x, y2: y0 + (GAM_Y - y0) * d, class: 'compass' }, g);
+          const o = seg(t, .8, 1);
+          if (o > 0) {
+            el('circle', { cx: x, cy: SWR_Y, r: 5 * o, class: 'f-pen' }, g);
+            el('circle', { cx: x, cy: GAM_Y, r: 5 * o, class: 'f-pen' }, g);
+            label(g, x - 10, SWR_Y + 28, `SWR ${f(s.S)}`, 'f-pen', 'end', o);
+          }
+        }
         const k = ease(seg(t, 0, .4));
         if (k > 0) {
           const [x, y] = P(s.mag, 0);
@@ -316,7 +387,9 @@
     const r = RL / z0, x = XL / z0, den = (r + 1) * (r + 1) + x * x;
     const gre = (r * r - 1 + x * x) / den, gim = 2 * x / den, mag = Math.hypot(gre, gim);
     const m2 = r * r + x * x;
-    s = { z0, RL, XL, r, x, gre, gim, mag, ang: Math.atan2(gim, gre), g: r / m2, b: -x / m2, S: (1 + mag) / (1 - mag) };
+    const ang = Math.atan2(gim, gre), half = v => ((v % 0.5) + 0.5) % 0.5;
+    s = { z0, RL, XL, r, x, gre, gim, mag, ang, g: r / m2, b: -x / m2, S: (1 + mag) / (1 - mag),
+      wz: half((Math.PI - ang) / (4 * Math.PI)), wy: half(-ang / (4 * Math.PI)) };
     return '';
   }
 
@@ -328,6 +401,7 @@
       const li = document.createElement('li'), b = document.createElement('button');
       b.type = 'button'; b.textContent = typeof st.title === 'function' ? st.title(s) : st.title;
       b.onclick = () => { auto = false; go(i); };
+      li.style.setProperty('--c', `var(--${['pen','red','red','red','pen','ochre','ochre','pen','grid'][i]})`);
       li.appendChild(b); ol.appendChild(li);
     });
   }
@@ -345,8 +419,9 @@
       ['y_L', 6, cx(s.g, s.b)],
       ['VSWR', 7, f(s.S)]
     ];
+    const col = { 'z_L': 'red', '|Γ|': 'pen', 'y_L': 'ochre', 'VSWR': 'pen' };
     $('results').innerHTML = rows.map(([k, at, v]) =>
-      `<dt>${k.replace('_L', '<sub>L</sub>')}</dt>` + (cur >= at ? `<dd>${v}</dd>` : `<dd class="wait">not found yet</dd>`)).join('');
+      `<dt>${k.replace('_L', '<sub>L</sub>')}</dt>` + (cur >= at ? `<dd style="color:var(--${col[k]})">${v}</dd>` : `<dd class="wait">not found yet</dd>`)).join('');
     $('prev').disabled = cur === 0;
     $('next').disabled = cur === LAST;
     $('play').textContent = auto ? 'Pause' : (cur === LAST && t >= 1 ? 'Replay' : 'Play');
@@ -393,6 +468,109 @@
     if (msg) return;
     auto = false; stop(); renderStatic(); cur = 0; t = 1; renderPanel(); renderChart();
   }
+
+  /* ---------- paper chart ---------- */
+  let paperBuilt = false;
+  function buildPaper() {
+    const g = $('gridPaper');
+    const tiers = [[0.2, 0.01], [0.5, 0.02], [1, 0.05], [2, 0.1], [5, 0.2], [10, 1], [20, 2], [50, 10]];
+    const ext = new Map();
+    tiers.forEach(([L, st]) => {
+      for (let i = 1, n = Math.round(L / st); i <= n; i++) {
+        const v = +(i * st).toFixed(2); ext.set(v, Math.max(ext.get(v) || 0, L));
+      }
+    });
+    const near = (v, m) => Math.abs(v / m - Math.round(v / m)) < 1e-6;
+    const major = v => (v <= 1 && near(v, 0.1)) || (v > 1 && v <= 2 && near(v, 0.2)) || (v > 2 && v <= 5 && near(v, 1)) || v === 10 || v === 20 || v === 50;
+    const rSeg = (r, L) => {
+      const den = (r + 1) * (r + 1) + L * L, re = (r * r - 1 + L * L) / den, im = 2 * L / den;
+      const [sx, sy] = P(re, im), [ex, ey] = P(re, -im), rad = R / (1 + r);
+      const big = Math.atan2(im, re - r / (1 + r)) < Math.PI / 2 ? 1 : 0;
+      return `M${sx.toFixed(2)} ${sy.toFixed(2)}A${rad.toFixed(2)} ${rad.toFixed(2)} 0 ${big} 0 ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+    };
+    const xSeg = (x, L) => {
+      const den = (L + 1) * (L + 1) + x * x, [sx, sy] = P(...rim(x));
+      const [ex, ey] = P((L * L - 1 + x * x) / den, 2 * x / den), rad = R / Math.abs(x);
+      return `M${sx.toFixed(2)} ${sy.toFixed(2)}A${rad.toFixed(2)} ${rad.toFixed(2)} 0 0 ${x > 0 ? 1 : 0} ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+    };
+    let dMin = '', dMaj = '';
+    ext.forEach((L, v) => {
+      const d = rSeg(v, L) + xSeg(v, L) + xSeg(-v, L);
+      if (major(v)) dMaj += d; else dMin += d;
+    });
+    const [ax, ay] = P(-1, 0), [bx, by] = P(1, 0);
+    dMaj += `M${ax} ${ay}L${bx} ${by}`;
+
+    // outer rings
+    const pol = (rad, deg) => [CX + rad * Math.cos(deg * Math.PI / 180), CY - rad * Math.sin(deg * Math.PI / 180)];
+    const tick = (deg, r1, r2) => { const [x1, y1] = pol(r1, deg), [x2, y2] = pol(r2, deg); return `M${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}`; };
+    const ringText = (rad, deg, txt) => {
+      const [x, y] = pol(rad, deg);
+      el('text', { transform: `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(90 - deg).toFixed(2)})`, class: 'p-ring', 'text-anchor': 'middle', dy: '.35em' }, g).textContent = txt;
+    };
+    let dRing = '';
+    for (let a = -175; a <= 180; a += 5) {
+      dRing += tick(a, R, R + (a % 10 === 0 ? 6 : 3));
+      if (a % 10 === 0) ringText(R + 12, a, a + '°');
+    }
+    for (let i = 0; i < 100; i++) {
+      const w = i * 0.005, even = i % 2 === 0;
+      dRing += tick(180 + 720 * w, R + 18, R + 18 + (even ? 6 : 3)) + tick(180 - 720 * w, R + 36, R + 36 + (even ? 6 : 3));
+      if (even) { ringText(R + 29, 180 + 720 * w, w.toFixed(2)); ringText(R + 47, 180 - 720 * w, w.toFixed(2)); }
+    }
+    el('path', { d: dMin, class: 'p-min' }, g);
+    el('path', { d: dMaj + dRing, class: 'p-maj' }, g);
+    [0, 18, 36, 54].forEach(o => el('circle', { cx: CX, cy: CY, r: R + o, class: 'p-maj' }, g));
+
+    // grid labels
+    const vals = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.4, 1.6, 1.8, 2, 3, 4, 5, 10, 20, 50];
+    vals.forEach(v => {
+      const txt = v < 10 ? v.toFixed(1) : String(v);
+      const [px, py] = P((v - 1) / (v + 1), 0);
+      el('text', { transform: `translate(${(px - 2).toFixed(2)} ${(py - 3).toFixed(2)}) rotate(-90)`, class: 'p-text' }, g).textContent = txt;
+      [v, -v].forEach(x => {
+        const [re, im] = rim(x), [qx, qy] = P(re * 0.962, im * 0.962);
+        el('text', { x: qx, y: qy + 3, class: 'p-text', 'text-anchor': 'middle' }, g).textContent = txt;
+      });
+    });
+    el('text', { x: 24, y: 34, class: 'p-cap' }, g).textContent = 'IMPEDANCE OR ADMITTANCE COORDINATES';
+    el('text', { x: 24, y: 50, class: 'p-cap' }, g).textContent = 'Upper half: +jX/Z₀ or +jB/Y₀. Lower half: −jX/Z₀ or −jB/Y₀';
+
+    // radial scales under the chart
+    let dS = `M${CX - R} ${SWR_Y}L${CX} ${SWR_Y}M${CX - R} ${GAM_Y}L${CX} ${GAM_Y}`;
+    const swrTicks = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.2, 2.4, 2.6, 2.8, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40];
+    const swrLab = [1, 1.2, 1.4, 1.6, 1.8, 2, 2.5, 3, 4, 5, 10, 20, 40];
+    swrTicks.concat([2.5]).forEach(S => {
+      const x = CX - R * (S - 1) / (S + 1), lab = swrLab.includes(S);
+      dS += `M${x.toFixed(2)} ${SWR_Y}L${x.toFixed(2)} ${SWR_Y - (lab ? 8 : 4)}`;
+      if (lab) el('text', { x, y: SWR_Y - 11, class: 'p-text', 'text-anchor': 'middle' }, g).textContent = S;
+    });
+    dS += `M${CX - R} ${SWR_Y}L${CX - R} ${SWR_Y - 8}`;
+    el('text', { x: CX - R, y: SWR_Y - 11, class: 'p-text', 'text-anchor': 'middle' }, g).textContent = '∞';
+    for (let i = 0; i <= 20; i++) {
+      const x = CX - R * i / 20, lab = i % 2 === 0;
+      dS += `M${x.toFixed(2)} ${GAM_Y}L${x.toFixed(2)} ${GAM_Y + (lab ? 8 : 4)}`;
+      if (lab) el('text', { x, y: GAM_Y + 19, class: 'p-text', 'text-anchor': 'middle' }, g).textContent = (i / 20).toFixed(1);
+    }
+    el('path', { d: dS, class: 'p-maj' }, g);
+    el('text', { x: CX + 12, y: SWR_Y + 4, class: 'p-cap' }, g).textContent = 'SWR (VSWR), measured from the centre';
+    el('text', { x: CX + 12, y: GAM_Y + 4, class: 'p-cap' }, g).textContent = 'REFLECTION COEFFICIENT |Γ|';
+  }
+
+  function setMode(isPaper) {
+    paper = isPaper;
+    [CX, CY, R] = paper ? [550, 500, 370] : [360, 360, 270];
+    $('svg').setAttribute('viewBox', paper ? '0 0 1100 1120' : '0 0 720 720');
+    if (paper && !paperBuilt) { buildPaper(); paperBuilt = true; }
+    $('gridSimple').hidden = paper; $('gridPaper').hidden = !paper;
+    $('gridSimple').style.display = paper ? 'none' : ''; $('gridPaper').style.display = paper ? '' : 'none';
+    $('legSimple').hidden = paper; $('legPaper').hidden = !paper;
+    document.body.classList.toggle('paper', paper);
+    $('tabSimple').setAttribute('aria-selected', !paper); $('tabPaper').setAttribute('aria-selected', paper);
+    reset();
+  }
+  $('tabSimple').onclick = () => setMode(false);
+  $('tabPaper').onclick = () => setMode(true);
 
   $('play').onclick = toggle;
   $('prev').onclick = () => { auto = false; go(cur - 1); };
