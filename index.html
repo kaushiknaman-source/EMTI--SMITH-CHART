@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smith chart, drawn step by step</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --desk:#E6ECEE; --sheet:#FCFDFB; --ink:#1C2430; --muted:#5A6675;
+    --grid:#3F8F6B; --pen:#1B3A8C; --red:#C4361F; --ochre:#A86200; --line:#C9D3D8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--desk);color:var(--ink);
+    font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-size:17px;line-height:1.5}
+  main{max-width:1240px;margin:0 auto;padding:28px 20px 48px}
+  h1{font-size:2rem;line-height:1.15;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
+  .problem{max-width:64ch;margin:0 0 22px;color:var(--muted)}
+  .problem b{color:var(--ink);font-weight:600}
+  .layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:22px;align-items:start}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  .sheet{background:var(--sheet);border:1px solid var(--line);border-radius:4px}
+  .chart{padding:6px}
+  svg{display:block;width:100%;height:auto}
+  .panel{padding:20px 22px}
+
+  /* chart */
+  .g-line{fill:none;stroke:var(--grid);stroke-width:1;opacity:.45}
+  .g-rim{fill:none;stroke:var(--grid);stroke-width:1.6;opacity:.8}
+  .g-text{font:13px "Source Serif 4",Georgia,serif;fill:var(--grid)}
+  .locus{fill:none;stroke-width:3.2;stroke-linecap:round}
+  .past .locus{opacity:.38}
+  .c-red{stroke:var(--red)} .c-ochre{stroke:var(--ochre)} .c-pen{stroke:var(--pen)}
+  .pen{fill:none;stroke:var(--pen);stroke-width:2.2;stroke-linecap:round}
+  .compass{stroke:var(--pen);stroke-width:1.4;stroke-dasharray:5 5}
+  .lbl{font:600 16px "Source Serif 4",Georgia,serif;paint-order:stroke;stroke:var(--sheet);stroke-width:5px;stroke-linejoin:round}
+  .f-red{fill:var(--red)} .f-ochre{fill:var(--ochre)} .f-pen{fill:var(--pen)}
+
+  /* panel */
+  form{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 6px}
+  label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:3px}
+  input[type=number]{width:92px;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink)}
+  .err{color:var(--red);font-size:.9rem;min-height:1.3em;margin:0 0 8px}
+  ol.steps{list-style:none;margin:0 0 16px;padding:0;counter-reset:s;border-top:1px solid var(--line)}
+  ol.steps li{counter-increment:s;border-bottom:1px solid var(--line)}
+  ol.steps button{all:unset;cursor:pointer;display:block;width:100%;padding:7px 6px;color:var(--muted)}
+  ol.steps button::before{content:counter(s) ". ";font-variant-numeric:tabular-nums}
+  ol.steps li.done button{color:var(--ink)}
+  ol.steps li.cur button{color:var(--pen);font-weight:600;background:#EEF2FB}
+  .explain{min-height:9.5em;margin:0 0 16px}
+  .explain h2{font-size:1.25rem;margin:0 0 6px;font-weight:600}
+  .explain p{margin:0 0 8px;max-width:60ch}
+  .math{font-style:italic;white-space:nowrap}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 18px}
+  .controls button{font:inherit;padding:8px 14px;border:1px solid var(--pen);border-radius:4px;background:#fff;color:var(--pen);cursor:pointer}
+  .controls button.primary{background:var(--pen);color:#fff;min-width:6.2em}
+  .controls button:disabled{opacity:.4;cursor:default}
+  .controls label{flex-direction:row;align-items:center;gap:6px;margin-left:auto}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #7FA0F0;outline-offset:2px}
+  select{font:inherit;padding:6px;border:1px solid var(--line);border-radius:4px;background:#fff}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0;padding-top:14px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+  dt{color:var(--muted)} dd{margin:0;font-weight:600}
+  dd.wait{font-weight:400;color:var(--line)}
+  .hint{font-size:.85rem;color:var(--muted);margin:12px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Smith chart, drawn step by step</h1>
+  <p class="problem" id="problem"></p>
+
+  <div class="layout">
+    <div class="sheet chart">
+      <svg id="svg" viewBox="0 0 720 720" role="img" aria-label="Animated Smith chart construction">
+        <defs><clipPath id="disc"><circle cx="360" cy="360" r="270"/></clipPath></defs>
+        <g id="grid"></g>
+        <g id="work"></g>
+      </svg>
+    </div>
+
+    <div class="sheet panel">
+      <form id="form" novalidate>
+        <label><span>Z₀ (Ω)</span><input type="number" id="z0" value="50" step="any"></label>
+        <label><span>R<sub>L</sub> (Ω)</span><input type="number" id="rl" value="25" step="any"></label>
+        <label><span>X<sub>L</sub> (Ω)</span><input type="number" id="xl" value="-50" step="any"></label>
+      </form>
+      <p class="err" id="err" role="alert"></p>
+
+      <ol class="steps" id="steps"></ol>
+      <div class="explain" id="explain" aria-live="polite"></div>
+
+      <div class="controls">
+        <button type="button" id="prev">Back</button>
+        <button type="button" id="play" class="primary">Play</button>
+        <button type="button" id="next">Next</button>
+        <label>Speed
+          <select id="speed"><option value="0.5">Slow</option><option value="1" selected>Normal</option><option value="2">Fast</option></select>
+        </label>
+      </div>
+
+      <dl id="results"></dl>
+      <p class="hint">Keyboard: space plays or pauses, the left and right arrows change step.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg', C = 360, R = 270;
+  const $ = id => document.getElementById(id);
+  const el = (name, attrs, parent) => {
+    const e = document.createElementNS(NS, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const P = (re, im) => [C + R * re, C - R * im];
+  const f = n => { const v = +n.toFixed(2); return (Object.is(v, -0) ? 0 : v).toString().replace('-', '−'); };
+  const cx = (re, im) => `${f(re)} ${im < 0 ? '−' : '+'} j${f(Math.abs(im))}`;
+  const signed = n => (n >= 0 ? '+' : '') + f(n);
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const seg = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+
+  /* ---------- geometry ---------- */
+  function rCirclePath(r) {
+    const gx = r / (1 + r), rad = R / (1 + r);
+    const [x1, y1] = P(1, 0), [x2, y2] = P(gx - 1 / (1 + r), 0);
+    return `M${x1} ${y1}A${rad} ${rad} 0 1 0 ${x2} ${y2}A${rad} ${rad} 0 1 0 ${x1} ${y1}`;
+  }
+  const rim = x => [(x * x - 1) / (1 + x * x), 2 * x / (1 + x * x)];
+  function xArcPath(x) {
+    const [x1, y1] = P(1, 0);
+    if (Math.abs(x) < 1e-6) { const [x2, y2] = P(-1, 0); return `M${x1} ${y1}L${x2} ${y2}`; }
+    const [x2, y2] = P(...rim(x)), rad = R / Math.abs(x);
+    return `M${x1} ${y1}A${rad} ${rad} 0 0 ${x > 0 ? 0 : 1} ${x2} ${y2}`;
+  }
+
+  /* ---------- static grid ---------- */
+  (function grid() {
+    const g = $('grid');
+    const [ax, ay] = P(-1, 0), [bx, by] = P(1, 0);
+    el('line', { x1: ax, y1: ay, x2: bx, y2: by, class: 'g-line' }, g);
+    [0.2, 0.5, 1, 2, 5].forEach(r => {
+      el('path', { d: rCirclePath(r), class: 'g-line' }, g);
+      const [px, py] = P((r - 1) / (r + 1), 0);
+      el('text', { x: px + 4, y: py + 15, class: 'g-text' }, g).textContent = r;
+    });
+    [0.2, 0.5, 1, 2, 5].forEach(x => [x, -x].forEach(v => {
+      el('path', { d: xArcPath(v), class: 'g-line' }, g);
+      const [re, im] = rim(v), [px, py] = P(re * 1.06, im * 1.06);
+      el('text', { x: px, y: py + 5, class: 'g-text', 'text-anchor': 'middle' }, g)
+        .textContent = (v > 0 ? '+j' : '−j') + Math.abs(v);
+    }));
+    el('circle', { cx: C, cy: C, r: R, class: 'g-rim' }, g);
+    const [zx, zy] = P(-1.06, 0);
+    el('text', { x: zx - 4, y: zy + 5, class: 'g-text', 'text-anchor': 'middle' }, g).textContent = '0';
+    const [ix, iy] = P(1.06, 0);
+    el('text', { x: ix + 4, y: iy + 5, class: 'g-text', 'text-anchor': 'middle' }, g).textContent = '∞';
+  })();
+
+  /* ---------- drawing helpers ---------- */
+  function curve(g, d, cls, t) {
+    if (t <= 0) return;
+    el('path', { d, class: cls, pathLength: 1, 'stroke-dasharray': 1, 'stroke-dashoffset': 1 - t }, g);
+  }
+  function label(g, x, y, text, cls, anchor = 'middle', op = 1) {
+    if (op <= 0) return;
+    const tx = el('text', { x, y, class: 'lbl ' + cls, 'text-anchor': anchor, opacity: op }, g);
+    if (text.endsWith('_L')) {
+      tx.textContent = text[0];
+      el('tspan', { dy: 5, 'font-size': 12 }, tx).textContent = 'L';
+    } else tx.textContent = text;
+  }
+  function dot(g, re, im, fillCls, text, t) {
+    if (t <= 0) return;
+    const [x, y] = P(re, im), k = ease(t);
+    el('circle', { cx: x, cy: y, r: 7 * k, class: fillCls, stroke: '#fff', 'stroke-width': 2 }, g);
+    const m = Math.hypot(re, im);
+    const dx = m > 0.02 ? re / m : 0.7, dy = m > 0.02 ? im / m : 0.7;
+    const anchor = dx > 0.3 ? 'start' : dx < -0.3 ? 'end' : 'middle';
+    label(g, x + dx * 16, y - dy * 20 + 6, text, fillCls, anchor, k);
+  }
+  function rHighlight(g, r, cls, text, t, top) {
+    curve(g, rCirclePath(r), 'locus c-' + cls, ease(t));
+    const [x, y] = P(r / (1 + r), (top ? 1 : -1) / (1 + r));
+    label(g, x, y + (top ? -10 : 22), text, 'f-' + cls, 'middle', seg(t, .6, 1));
+  }
+  function xHighlight(g, x, cls, text, t) {
+    curve(g, xArcPath(x), 'locus c-' + cls, ease(t));
+    const [re, im] = Math.abs(x) < 1e-6 ? [-1, 0] : rim(x);
+    const [px, py] = P(re * 1.17, im * 1.17);
+    label(g, px, py + 5, text, 'f-' + cls, 'middle', seg(t, .6, 1));
+  }
+
+  /* ---------- steps ---------- */
+  const steps = [
+    {
+      title: 'Normalize the load',
+      text: s => `<p>The chart only works with normalized values, so divide by Z₀:</p>
+        <p><span class="math">z<sub>L</sub> = Z<sub>L</sub> / Z₀ = (${cx(s.RL, s.XL)}) / ${f(s.z0)} = ${cx(s.r, s.x)}</span></p>
+        <p>The centre of the chart is z = 1, a perfectly matched load.</p>`,
+      draw: (g, t) => {
+        const k = ease(t);
+        el('circle', { cx: C, cy: C, r: 4 * k, class: 'f-pen' }, g);
+        label(g, C + 8, C - 10, 'z = 1', 'f-pen', 'start', k);
+      }
+    },
+    {
+      title: s => `Find the r = ${f(s.r)} circle`,
+      text: s => `<p>Resistance circles all touch the right-hand edge of the chart. Follow the real axis to
+        <span class="math">r = ${f(s.r)}</span> and trace that circle.</p>
+        <p>Every impedance with this resistance lies somewhere on it.</p>`,
+      draw: (g, t, s) => rHighlight(g, s.r, 'red', `r = ${f(s.r)}`, t, true)
+    },
+    {
+      title: s => `Find the x = ${f(s.x)} arc`,
+      text: s => Math.abs(s.x) < 1e-6
+        ? `<p>The reactance is zero, so the load sits on the horizontal real axis.</p>`
+        : `<p>Reactance arcs fan out from the right-hand edge. ${s.x < 0
+            ? 'Negative (capacitive) reactance is in the lower half'
+            : 'Positive (inductive) reactance is in the upper half'}, so trace the
+          <span class="math">x = ${f(s.x)}</span> arc from the rim inwards.</p>`,
+      draw: (g, t, s) => xHighlight(g, s.x, 'red', `x = ${f(s.x)}`, t)
+    },
+    {
+      title: 'Mark the load point',
+      text: s => `<p>Where the circle and the arc cross is the load:</p>
+        <p><span class="math">z<sub>L</sub> = ${cx(s.r, s.x)}</span></p>`,
+      draw: (g, t, s) => dot(g, s.gre, s.gim, 'f-red', 'z_L', t)
+    },
+    {
+      title: 'Draw the constant-VSWR circle',
+      text: s => `<p>Put the compass point on the centre, open it out to z<sub>L</sub>, and draw a full circle.</p>
+        <p>Its radius is <span class="math">|Γ| = ${f(s.mag)}</span> of the chart radius. As you move along the
+        line, the impedance travels around this circle.</p>`,
+      draw: (g, t, s) => {
+        if (t <= 0) return;
+        const k = ease(t), n = Math.max(2, Math.ceil(160 * k));
+        let d = '', lx = 0, ly = 0;
+        for (let i = 0; i <= n; i++) {
+          const a = s.ang - 2 * Math.PI * k * i / n;
+          [lx, ly] = P(s.mag * Math.cos(a), s.mag * Math.sin(a));
+          d += (i ? 'L' : 'M') + lx.toFixed(2) + ' ' + ly.toFixed(2);
+        }
+        el('path', { d, class: 'pen' }, g);
+        if (t < 1) {
+          el('line', { x1: C, y1: C, x2: lx, y2: ly, class: 'compass' }, g);
+          el('circle', { cx: lx, cy: ly, r: 4, class: 'f-pen' }, g);
+        }
+      }
+    },
+    {
+      title: 'Cross to the opposite side',
+      text: s => `<p>Rule a straight line from z<sub>L</sub> through the centre until it meets the circle again.</p>
+        <p>Half a turn on the chart is a λ/4 move along the line, and that inverts a normalized impedance.
+        So the opposite point is the admittance, y<sub>L</sub> = 1 / z<sub>L</sub>.</p>`,
+      draw: (g, t, s) => {
+        const u = ease(seg(t, 0, .6));
+        if (u > 0) {
+          const [x1, y1] = P(s.gre, s.gim), [x2, y2] = P(s.gre * (1 - 2 * u), s.gim * (1 - 2 * u));
+          el('line', { x1, y1, x2, y2, class: 'pen' }, g);
+        }
+        dot(g, -s.gre, -s.gim, 'f-ochre', 'y_L', seg(t, .6, 1));
+      }
+    },
+    {
+      title: 'Read the admittance',
+      text: s => `<p>Read the new point off the same grid, but now treat the circles as conductance and the arcs
+        as susceptance:</p>
+        <p><span class="math">g = ${f(s.g)}, &nbsp; b = ${signed(s.b)}</span></p>
+        <p><span class="math">y<sub>L</sub> = ${cx(s.g, s.b)}</span></p>`,
+      draw: (g, t, s) => {
+        rHighlight(g, s.g, 'ochre', `g = ${f(s.g)}`, seg(t, 0, .55), false);
+        xHighlight(g, s.b, 'ochre', `b = ${signed(s.b)}`, seg(t, .45, 1));
+      }
+    },
+    {
+      title: 'Read the VSWR',
+      text: s => `<p>Look at where the VSWR circle cuts the real axis on the right of the centre.
+        The resistance value at that crossing is the VSWR:</p>
+        <p><span class="math">VSWR = ${f(s.S)}</span></p>`,
+      draw: (g, t, s) => {
+        const k = ease(seg(t, 0, .4));
+        if (k > 0) {
+          const [x, y] = P(s.mag, 0);
+          el('circle', { cx: x, cy: y, r: 7 * k, class: 'f-pen', stroke: '#fff', 'stroke-width': 2 }, g);
+          label(g, x, y + 28, `VSWR = ${f(s.S)}`, 'f-pen', 'middle', k);
+        }
+        curve(g, rCirclePath(s.S), 'locus c-pen', ease(seg(t, .35, 1)));
+      }
+    },
+    {
+      title: 'Answer and check',
+      text: s => `<p><span class="math">y<sub>L</sub> = ${cx(s.g, s.b)}</span> and
+        <span class="math">VSWR ≈ ${f(s.S)}</span>.</p>
+        <p>Check by formula: <span class="math">|Γ| = |(z<sub>L</sub> − 1) / (z<sub>L</sub> + 1)| = ${f(s.mag)}</span>,
+        so <span class="math">VSWR = (1 + ${f(s.mag)}) / (1 − ${f(s.mag)}) = ${f(s.S)}</span>.</p>
+        <p>In real units, <span class="math">Y<sub>L</sub> = y<sub>L</sub> / Z₀ = ${cx(s.g / s.z0 * 1000, s.b / s.z0 * 1000)} mS</span>.
+        On a paper chart, reading to one decimal place is normal.</p>`,
+      draw: () => {}
+    }
+  ];
+  const LAST = steps.length - 1;
+
+  /* ---------- state ---------- */
+  let s = null, cur = 0, t = 1, auto = false, raf = 0, timer = 0, prevTs = 0;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function compute() {
+    const z0 = parseFloat($('z0').value), RL = parseFloat($('rl').value), XL = parseFloat($('xl').value);
+    if (![z0, RL, XL].every(Number.isFinite)) return 'Enter a number in all three boxes.';
+    if (z0 <= 0) return 'Z₀ must be greater than zero.';
+    if (RL <= 0) return 'R_L must be greater than zero. A purely reactive load has infinite VSWR.';
+    const r = RL / z0, x = XL / z0, den = (r + 1) * (r + 1) + x * x;
+    const gre = (r * r - 1 + x * x) / den, gim = 2 * x / den, mag = Math.hypot(gre, gim);
+    const m2 = r * r + x * x;
+    s = { z0, RL, XL, r, x, gre, gim, mag, ang: Math.atan2(gim, gre), g: r / m2, b: -x / m2, S: (1 + mag) / (1 - mag) };
+    return '';
+  }
+
+  function renderStatic() {
+    $('problem').innerHTML = `A <b>${f(s.z0)} Ω</b> line is terminated in <b>Z<sub>L</sub> = ${cx(s.RL, s.XL)} Ω</b>.
+      Find the normalized load admittance y<sub>L</sub> and the VSWR using the Smith chart.`;
+    const ol = $('steps'); ol.innerHTML = '';
+    steps.forEach((st, i) => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.textContent = typeof st.title === 'function' ? st.title(s) : st.title;
+      b.onclick = () => { auto = false; go(i); };
+      li.appendChild(b); ol.appendChild(li);
+    });
+  }
+
+  function renderPanel() {
+    [...$('steps').children].forEach((li, i) => {
+      li.className = i === cur ? 'cur' : i < cur ? 'done' : '';
+      li.firstChild.setAttribute('aria-current', i === cur ? 'step' : 'false');
+    });
+    const st = steps[cur], title = typeof st.title === 'function' ? st.title(s) : st.title;
+    $('explain').innerHTML = `<h2>${title}</h2>${st.text(s)}`;
+    const rows = [
+      ['z_L', 0, cx(s.r, s.x)],
+      ['|Γ|', 4, `${f(s.mag)} at ${f(s.ang * 180 / Math.PI)}°`],
+      ['y_L', 6, cx(s.g, s.b)],
+      ['VSWR', 7, f(s.S)]
+    ];
+    $('results').innerHTML = rows.map(([k, at, v]) =>
+      `<dt>${k.replace('_L', '<sub>L</sub>')}</dt>` + (cur >= at ? `<dd>${v}</dd>` : `<dd class="wait">not found yet</dd>`)).join('');
+    $('prev').disabled = cur === 0;
+    $('next').disabled = cur === LAST;
+    $('play').textContent = auto ? 'Pause' : (cur === LAST && t >= 1 ? 'Replay' : 'Play');
+  }
+
+  function renderChart() {
+    const w = $('work'); w.textContent = '';
+    for (let i = 0; i <= cur; i++) {
+      const g = el('g', i < cur ? { class: 'past' } : {}, w);
+      steps[i].draw(g, i < cur ? 1 : t, s);
+    }
+  }
+
+  function stop() { cancelAnimationFrame(raf); clearTimeout(timer); raf = 0; }
+  function run() {
+    stop(); prevTs = 0;
+    const frame = ts => {
+      if (prevTs) t = Math.min(1, t + (ts - prevTs) / (2200 / parseFloat($('speed').value)));
+      prevTs = ts; renderChart();
+      if (t < 1) { raf = requestAnimationFrame(frame); return; }
+      raf = 0;
+      if (auto && cur < LAST) timer = setTimeout(() => go(cur + 1), 1100 / parseFloat($('speed').value));
+      else { auto = false; renderPanel(); }
+    };
+    raf = requestAnimationFrame(frame);
+  }
+  function go(i) {
+    stop();
+    cur = Math.max(0, Math.min(LAST, i));
+    t = reduced ? 1 : 0;
+    renderPanel(); renderChart();
+    if (reduced) { if (auto && cur < LAST) timer = setTimeout(() => go(cur + 1), 1800); else { auto = false; renderPanel(); } }
+    else run();
+  }
+  function toggle() {
+    if (auto) { auto = false; stop(); renderPanel(); return; }
+    auto = true;
+    if (t < 1) { renderPanel(); run(); }
+    else go(cur < LAST ? cur + 1 : 0);
+  }
+  function reset() {
+    const msg = compute();
+    $('err').textContent = msg;
+    if (msg) return;
+    auto = false; stop(); renderStatic(); cur = 0; t = 1; renderPanel(); renderChart();
+  }
+
+  $('play').onclick = toggle;
+  $('prev').onclick = () => { auto = false; go(cur - 1); };
+  $('next').onclick = () => { auto = false; go(cur + 1); };
+  $('form').addEventListener('input', reset);
+  $('form').addEventListener('submit', e => e.preventDefault());
+  document.addEventListener('keydown', e => {
+    if (/INPUT|SELECT|BUTTON/.test(e.target.tagName)) return;
+    if (e.key === ' ') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowRight' && cur < LAST) { auto = false; go(cur + 1); }
+    else if (e.key === 'ArrowLeft' && cur > 0) { auto = false; go(cur - 1); }
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
